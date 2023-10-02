@@ -9,30 +9,38 @@
 #include <functional>
 #include <random>
 
+/**
+ * @brief Класс для моделирования электроники
+ *
+ * Данный класс используется для загрузки входных параметров
+ * и расчета конечных данных.
+ *
+ */
 class ModelElectronics {
 private:
-    const int N_CHAN = 109;
+    /* Константы для расчетов. */
+    const int N_CHAN = 109; /// Число каналов
     const int PULSE_LENGTH = 1000;
     const int AMP_SIZE = 10000;
     const int INTERF_LENGTH = 6200;
     const int BIN_2_GEN = 1020;
     const float CURR_2_PH = 3. / 8;
-    std::vector<std::vector<float>> pieds;
-    std::vector<float> curbase;
-    std::vector<float> pulse;
-    std::vector<float> amp;
-    std::vector<int> Toff;
-    std::vector<float> interf;
-    std::vector<float> interf_amp;
-    std::vector<int> thr;
-    std::vector<float> Cal;
-    int N_PHEL{};
-    std::vector<int> PMTid;
-    std::vector<float> T;
-    float Tmin{};
-    float MEAN_CURR{};
-    std::vector<std::vector<int>> data_out;
-    std::vector<std::vector<float>> data;
+    std::vector<std::vector<float>> pieds; /// Пьедесталы
+    std::vector<float> curbase; /// Относительные токи
+    std::vector<float> pulse; /// Импульсные характеристики тока
+    std::vector<float> amp; /// Обратная функция распределения коэффициента усиления ФЭУ
+    std::vector<int> Toff; /// Относительные сдвиги каналов
+    std::vector<float> interf; /// Наводки
+    std::vector<float> interf_amp; /// Покональные амплитудные коэффициенты наводки
+    std::vector<int> thr; /// Пороги
+    std::vector<float> Cal; /// Калибровка
+    int N_PHEL{}; /// Число зарегистрированных фотонов
+    std::vector<int> PMTid; /// Номера ФЭУ, куда упали фотоэлектроны
+    std::vector<float> T; /// Времена прихода фотоэлектронов
+    float Tmin{}; /// Минимальное время прихода
+    float MEAN_CURR{}; /// Средний ток
+    std::vector<std::vector<int>> data_out; /// Выводной массив
+    std::vector<std::vector<float>> data; /// Данные
 public:
     ModelElectronics();
 
@@ -69,7 +77,9 @@ ModelElectronics::ModelElectronics() :
         thr(N_CHAN, 214),
         data_out(N_CHAN, std::vector<int>(BIN_2_GEN, 0)),
         data(N_CHAN, std::vector<float>(BIN_2_GEN * 25 + 2 * PULSE_LENGTH + 2, 0)) {}
-
+/**
+ * @brief Функция для считывания файла moshits
+ */
 void ModelElectronics::GetMoshits() {
     std::ifstream moshits("mosaic_hits_m01_pro_10PeV_10-20_001_c001");
 
@@ -100,6 +110,11 @@ void ModelElectronics::GetMoshits() {
     moshits.close();
 }
 
+/**
+ * @brief Обобщенная функция для считывания файлов с одной строкой
+ * @param fileName Имя файла
+ * @param vec ссылка на массив, в который надо считать файл
+ */
 void ModelElectronics::GetSimple(const std::string &fileName, std::vector<float> &vec) {
     std::ifstream input(fileName);
     if (!input.is_open()) {
@@ -117,6 +132,9 @@ void ModelElectronics::GetSimple(const std::string &fileName, std::vector<float>
     input.close();
 }
 
+/**
+ * @brief Функция для считывания файла калибровки
+ */
 void ModelElectronics::GetC() {
     std::ifstream cal("14484.cal");
     if (!cal.is_open()) {
@@ -136,6 +154,9 @@ void ModelElectronics::GetC() {
     cal.close();
 }
 
+/**
+ * @brief Генерация события
+ */
 void ModelElectronics::GenerateEvent() {
     int T_ph;
     float amp_ph;
@@ -151,6 +172,9 @@ void ModelElectronics::GenerateEvent() {
     }
 }
 
+/**
+ * @brief Добавление фона
+ */
 void ModelElectronics::AddBackground() {
     int BG_LENGTH{25 * BIN_2_GEN + PULSE_LENGTH + 25};
     float N_AVG;
@@ -178,6 +202,9 @@ void ModelElectronics::AddBackground() {
     }
 }
 
+/**
+ * @brief Имитация оцифровки
+ */
 void ModelElectronics::SimulateDig() {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -203,6 +230,9 @@ void ModelElectronics::SimulateDig() {
 
 }
 
+/**
+ * @brief Метод для печати выводного файла
+ */
 void ModelElectronics::PrintDataOut() {
     std::ofstream outFile("data_out");
     if (!outFile.is_open()) {
@@ -217,6 +247,9 @@ void ModelElectronics::PrintDataOut() {
     outFile.close();
 }
 
+/**
+ * @brief Класс для многопоточности
+ */
 class ThreadManager {
 private:
     ModelElectronics &obj;
@@ -226,6 +259,9 @@ public:
     void inputAll();
 };
 
+/**
+ * @brief Метод для заполнения массивов в многопоточном режиме
+ */
 void ThreadManager::inputAll() {
     std::vector<std::thread> threads;
     threads.emplace_back(&ModelElectronics::GetC, &obj);
