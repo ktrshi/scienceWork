@@ -9,6 +9,25 @@
 #include <functional>
 #include <random>
 
+std::vector<std::vector<int>> transpose(const std::vector<std::vector<int>>& matrix){
+    if (matrix.empty() || matrix[0].empty()) {
+        return {};
+    }
+
+    auto numRows = matrix.size();
+    auto numCols = matrix[0].size();
+
+    std::vector<std::vector<int>> transposedMatrix(numCols, std::vector<int>(numRows));
+
+    for (int i = 0; i < numRows; ++i) {
+        for (int j = 0; j < numCols; ++j) {
+            transposedMatrix[j][i] = matrix[i][j];
+        }
+    }
+
+    return transposedMatrix;
+}
+
 /**
  * @brief Класс для моделирования электроники
  *
@@ -38,7 +57,7 @@ private:
     std::vector<int> PMTid; /// Номера ФЭУ, куда упали фотоэлектроны
     std::vector<float> T; /// Времена прихода фотоэлектронов
     float Tmin{}; /// Минимальное время прихода
-    float MEAN_CURR{}; /// Средний ток
+    float MEAN_CURR{3.5}; /// Средний ток
     std::vector<std::vector<int>> data_out; /// Выводной массив
     std::vector<std::vector<float>> data; /// Данные
 public:
@@ -77,6 +96,7 @@ ModelElectronics::ModelElectronics() :
         thr(N_CHAN, 214),
         data_out(N_CHAN, std::vector<int>(BIN_2_GEN, 0)),
         data(N_CHAN, std::vector<float>(BIN_2_GEN * 25 + 2 * PULSE_LENGTH + 2, 0)) {}
+
 /**
  * @brief Функция для считывания файла moshits
  */
@@ -200,6 +220,7 @@ void ModelElectronics::AddBackground() {
             }
         }
     }
+
 }
 
 /**
@@ -210,21 +231,21 @@ void ModelElectronics::SimulateDig() {
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist_inter_length(0, INTERF_LENGTH);
     std::uniform_int_distribution<> dist_shift(0, 25);
-
+    std::cout << "SimDig" << std::endl;
     int t_f{0};
-    int t_shift{dist_shift(gen)};
+    int t_shift{0};
     float S_avg{0};
     for (int j{0}; j < N_CHAN; j++) {
-        t_f = dist_inter_length(gen);
+        t_shift = dist_inter_length(gen);
         t_shift = dist_shift(gen);
         for (int t{PULSE_LENGTH}; t < BIN_2_GEN * 25 + PULSE_LENGTH + 1; t++) {
             S_avg += data[j][t];
         }
         S_avg /= float(BIN_2_GEN) * 25;
         for (int i{0}; i < BIN_2_GEN; i++) {
-            data_out[j][i] = int(data[j][PULSE_LENGTH + t_shift + i * 25 + Toff[j]] / (Cal[j] - S_avg + pieds[j][0]
-                    * float(i % 2) + pieds[j][1] * float((i + 1) % 2) + interf_amp[j] *
-                    interf[(i * 25 + Toff[j] + t_f) % INTERF_LENGTH]));
+            data_out[j][i] = int((data[j][PULSE_LENGTH + t_shift + i * 25 + Toff[j]] - S_avg) /
+                                 Cal[j] + pieds[j][int(i % 2)] + pieds[j][int((i + 1) % 2)] +
+                                  interf_amp[j] * interf[(i * 25 + Toff[j] + t_f) % INTERF_LENGTH]);
         }
     }
 
@@ -238,8 +259,9 @@ void ModelElectronics::PrintDataOut() {
     if (!outFile.is_open()) {
         std::cerr << "Open file error." << std::endl;
     }
-    for (const auto& innerVec : data_out){
-        for (const auto& item: innerVec){
+    std::vector<std::vector<int>> data_out_t = transpose(data_out);
+    for (const auto &innerVec: data_out_t) {
+        for (const auto &item: innerVec) {
             outFile << item << ' ';
         }
         outFile << std::endl;
